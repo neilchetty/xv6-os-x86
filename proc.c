@@ -532,3 +532,19 @@ procdump(void)
     cprintf("\n");
   }
 }
+
+void
+ps() {
+  acquire(&ptable.lock);
+  for (struct proc *p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if (!p->killed && p->pid)
+    {
+      cprintf("Process ID: %d\n", p->pid);
+      cprintf("Parent Process ID: %d\n", p->parent->pid);
+      cprintf("Process Name: %s\n\n", p->name);
+    }
+  }
+  release(&ptable.lock);
+  return;
+}
