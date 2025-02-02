@@ -19,9 +19,17 @@ forktest(void)
   int n, pid;
 
   printf(1, "fork test\n");
-
+  #ifdef PRIORITY_SCHED
+  int p = 0;
+  #endif
   for(n=0; n<N; n++){
+    #ifdef PRIORITY_SCHED
+    if(p) pid = fork();
+    else pid = forkp(20);
+    p = 1 - p;
+    #else
     pid = fork();
+    #endif
     if(pid < 0)
       break;
     if(pid == 0)

@@ -89,8 +89,12 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
 
-  #ifdef FCFS_SCHED
+  #if defined(FCFS_SCHED) || defined(PRIORITY_SCHED)
   p->cunit = ticks;
+  #endif
+
+  #ifdef PRIORITY_SCHED
+  p->p = 64;
   #endif
 
   release(&ptable.lock);
@@ -219,6 +223,54 @@ fork(void)
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+
+  release(&ptable.lock);
+
+  return pid;
+}
+
+int
+forkp(int priority)
+{
+  int i, pid;
+  struct proc *np;
+  struct proc *curproc = myproc();
+
+  // Allocate process.
+  if((np = allocproc()) == 0){
+    return -1;
+  }
+
+  // Copy process state from proc.
+  if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
+    kfree(np->kstack);
+    np->kstack = 0;
+    np->state = UNUSED;
+    return -1;
+  }
+  np->sz = curproc->sz;
+  np->parent = curproc;
+  *np->tf = *curproc->tf;
+
+  // Clear %eax so that fork returns 0 in the child.
+  np->tf->eax = 0;
+
+  for(i = 0; i < NOFILE; i++)
+    if(curproc->ofile[i])
+      np->ofile[i] = filedup(curproc->ofile[i]);
+  np->cwd = idup(curproc->cwd);
+
+  safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+
+  pid = np->pid;
+
+  acquire(&ptable.lock);
+
+  np->state = RUNNABLE;
+
+  #ifdef PRIORITY_SCHED
+  np->p = priority;
+  #endif
 
   release(&ptable.lock);
 
@@ -375,6 +427,34 @@ scheduler(void)
       swtch(&(c->scheduler), p->context);
       switchkvm();
     }
+    #else
+    #ifdef PRIORITY_SCHED
+    struct proc *nextp = 0;
+    for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+    {
+      if(p->state != RUNNABLE)
+        continue;
+      if(nextp == 0)
+        nextp = p;
+      else if(p->p < nextp->p || (p->p == nextp->p && p->cunit < nextp->cunit))
+        nextp = p;
+    }
+    if(nextp != 0) {
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if(p != nextp && p->p > 0) p->p = p->p - 1;
+      }
+      p = nextp;
+      c->proc = p;
+      // cprintf("Switching to process with pid %d and name %s with priority %d\n", p->pid, p->name, p->p);
+      switchuvm(p);
+      p->state = RUNNING;
+      swtch(&(c->scheduler), p->context);
+      switchkvm();
+    }
+    #endif
     #endif
     #endif
 

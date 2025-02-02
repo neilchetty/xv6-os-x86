@@ -95,3 +95,11 @@ sys_ps(void) {
   ps();
   return 0;
 }
+
+int sys_forkp(void) {
+  int priority;
+  if(argint(0, &priority) < 0) {
+    return -1;
+  }
+  return forkp(priority);
+}

@@ -41,8 +41,11 @@ struct proc {
   char *kstack;                // Bottom of kernel stack for this process
   enum procstate state;        // Process state
   int pid;                     // Process ID
-  #ifdef FCFS_SCHED
+  #if defined(FCFS_SCHED) || defined(PRIORITY_SCHED)
   int cunit;                   // Process creation unit
+  #endif
+  #ifdef PRIORITY_SCHED
+  int p;                       // Priority of the process
   #endif
   struct proc *parent;         // Parent process
   struct trapframe *tf;        // Trap frame for current syscall

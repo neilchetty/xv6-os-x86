@@ -121,6 +121,7 @@ int             wait(void);
 void            wakeup(void*);
 void            yield(void);
 void            ps(void);
+int             forkp(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
